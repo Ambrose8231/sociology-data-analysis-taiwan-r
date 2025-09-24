@@ -1,0 +1,18 @@
+#필수적인 패키지들을 정리해보았습니다. 아래 패키지들을 미리 설치해 두면 편하실 겁니다!
+#I’ve put together a list of essential packages. It’ll be convenient if you install these in advance!
+
+
+install.packages(c(
+  # 데이터 입출력 Input/Output of data
+  "haven","readxl","writexl","openxlsx","readr","data.table",
+  # 데이터 처리 Handling data
+  "dplyr","tidyr","stringr","lubridate","forcats","janitor",
+  # 통계 분석 Statistical Analysis
+  "car","psych","DescTools","gmodels","MASS","nnet","survey","lme4","lavaan","survival",
+  # 시각화 Visualising
+  "ggplot2","ggthemes","hrbrthemes","scales","cowplot","patchwork",
+  # 정리 Report
+  "knitr","rmarkdown","xtable","stargazer","gt","flextable","officer",
+  # 기타 Etc
+  "skimr","Hmisc","here"
+))
