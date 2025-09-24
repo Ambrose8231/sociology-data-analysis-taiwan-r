@@ -17,4 +17,4 @@ TSCS, SI 조사, prestige.sav 등 대만 사회조사 데이터를 활용하여 
 - 통계적 결과와 사회학적 함의를 연결한 해석
 ⚠️ 주의: 데이터셋(TSCS, SI 조사, prestige.sav)은 라이선스 문제로 포함되지 않았습니다. 자료는 대만 중앙연구원의 대만사회변천 공식 아카이브에서 확인해 주세요.
 
-https://www2.ios.sinica.edu.tw/sc/cht/home.php (번체 중국어)
+https://www2.ios.sinica.edu.tw/sc/en/home2.php (영어)
