@@ -1,9 +1,0 @@
-# Week 6 — Sampling Distribution & Confidence Intervals (Taiwan)
-
-**EN**  
-This module reproduces Week 6 tasks: sampling distributions of means/proportions and 95% confidence intervals using synthetic population files and Taiwanese survey data structure. We show (1) how larger samples yield narrower CIs and (2) how to compute CIs for income, education years, and attitudes (TSCS 2011 structure). Plots and code are fully reproducible with local data in `data/`.  
-> Population & sampling workflow follows the original coursework scripts and notes.:contentReference[oaicite:0]{index=0}:contentReference[oaicite:1]{index=1}
-
-**KR**  
-이 모듈은 6주차 과제 재현본으로, 모집단에서 표본을 반복 추출하여 표본평균/비율의 분포와 95% 신뢰구간을 보여줍니다. 표본 크기가 커질수록 신뢰구간이 좁아짐을 시각화하고, 2011년 TSCS 구조에 맞춰 소득·교육연한·성역할 태도의 신뢰구간 계산 예시를 포함합니다. 데이터는 로컬 `data/` 폴더에서 읽습니다.  
-> 세부 코드 구성과 결과 해설은 원본 과제의 흐름을 따릅니다.:contentReference[oaicite:2]{index=2}:contentReference[oaicite:3]{index=3}
