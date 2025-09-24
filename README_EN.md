@@ -17,4 +17,4 @@ Features
 
 ⚠️ Note: Original datasets are not included due to licensing. Please refer to the official data archive (SRDA taiwan) for access. 
 
-https://www2.ios.sinica.edu.tw/sc/cht/home.php
+https://www2.ios.sinica.edu.tw/sc/en/home2.php
