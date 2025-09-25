@@ -1,0 +1,236 @@
+
+# 필요한 패키지
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(haven)
+library(knitr)
+library(stringr)
+library(purrr)
+
+# HTML 그래프에서 중국어 번체/한글 깨짐 방지 
+if (!requireNamespace("showtext", quietly = TRUE)) install.packages("showtext")
+library(showtext)
+showtext_auto()
+
+# 시스템에 있는 CJK 폰트 중 하나를 선택
+font_candidates <- c("Noto Sans CJK TC","Microsoft JhengHei","PingFang TC",
+                     "Heiti TC","Source Han Sans TW","Source Han Serif TW", "Yuanti TC")
+available <- systemfonts::system_fonts()$family
+fam <- dplyr::first(font_candidates[font_candidates %in% available])
+if (is.na(fam)) fam <- ""  # fallback
+
+theme_set(
+  theme_minimal(base_family = fam) +
+    theme(plot.title = element_text(face = "bold"),
+          legend.position = "bottom")
+)
+
+# ---- 파일 경로 ----
+setwd("/Users/younghokim/Desktop/Academic/Data Portfolio/Gen_Education")
+path_2006 <- "tscs061.sav"  # CP950(Big5)
+path_2011 <- "tscs111.sav"
+path_2016 <- "tscs161.sav"
+
+# ---- I. 개요 ----
+#분석목표: 생활만족도가 성별과 교육수준에 따라 연도(2006/2011/2016) 별로 어떻게 달라졌는지 파악.
+#핵심데이터: TSCS 각 연도 표본(성인), 20–69세 대상, 결측은 분석 단계에서 제거.
+#주요 이슈: (1) 2006 파일 CP950(Big5) 인코딩, 
+#           (2) 만족도 척도 방향(2011/2016은 반전 필요), 
+#           (3) 교육연한→집단 매핑.
+
+
+# 읽기
+d06 <- read_sav(path_2006, encoding = "CP950", user_na = TRUE)
+d11 <- read_sav(path_2011)
+d16 <- read_sav(path_2016)
+
+# 연도별 표준화 함수
+clean_year <- function(dat, year) {
+  if (year == 2006) {
+    gender_raw <- dat$a1; birth_y <- dat$a2y; edu_raw <- dat$a9;  life_raw <- dat$f5; base <- 95
+    rev_life <- FALSE
+  } else if (year == 2011) {
+    gender_raw <- dat$a1; birth_y <- dat$a2y; edu_raw <- dat$a11; life_raw <- dat$g5; base <- 100
+    rev_life <- TRUE
+  } else if (year == 2016) {
+    gender_raw <- dat$a1; birth_y <- dat$a2y; edu_raw <- dat$a10; life_raw <- dat$g7; base <- 105
+    rev_life <- TRUE
+  } else stop("Unknown year")
+  
+  eduyr <- case_when(
+    as.numeric(edu_raw) %in% 1:2 ~ 0,
+    as.numeric(edu_raw) == 3 ~ 6,
+    as.numeric(edu_raw) %in% 4:5 ~ 9,
+    as.numeric(edu_raw) %in% 6:9 ~ 12,
+    as.numeric(edu_raw) %in% 10 ~ 14,
+    as.numeric(edu_raw) %in% 11 ~ 14,
+    as.numeric(edu_raw) %in% 12 ~ 15,
+    as.numeric(edu_raw) %in% 13:15 ~ 14,
+    as.numeric(edu_raw) %in% 16:19 ~ 16,
+    as.numeric(edu_raw) == 20 ~ 18,
+    as.numeric(edu_raw) == 21 ~ 22,
+    TRUE ~ NA_real_
+  )
+  
+  life0 <- suppressWarnings(as.numeric(life_raw))
+  life <- if (!rev_life) dplyr::if_else(life0 %in% 1:5, life0, as.numeric(NA))
+  else dplyr::case_when(life0==1~5, life0==2~4, life0==3~3, life0==4~2, life0==5~1, TRUE~as.numeric(NA))
+  
+  out <- tibble(
+    id     = suppressWarnings(as.numeric(dat$id)),
+    gender = case_when(as.numeric(gender_raw)==1 ~ "男",
+                       as.numeric(gender_raw)==2 ~ "女",
+                       TRUE ~ NA_character_),
+    age    = base - suppressWarnings(as.numeric(birth_y)) + 1,
+    eduyr  = eduyr,
+    life   = life,
+    year   = year
+  ) |>
+    mutate(
+      edu_group = case_when(
+        eduyr >= 0  & eduyr <= 9  ~ "國中以下(중졸이하)",
+        eduyr >= 10 & eduyr <= 12 ~ "高中職(고졸)",
+        eduyr >= 13 & eduyr <= 15 ~ "專科(전문대졸)",
+        eduyr >= 16 & eduyr <= 22 ~ "大學以上(대학이상)",
+        TRUE ~ NA_character_
+      )
+    )
+  out
+}
+
+t06 <- clean_year(d06, 2006)
+t11 <- clean_year(d11, 2011)
+t16 <- clean_year(d16, 2016)
+
+dat <- bind_rows(t06, t11, t16) |>
+  filter(age >= 20, age <= 69) |>
+  drop_na(gender, edu_group, life)
+
+# 요약
+score_gender <- dat |>
+  group_by(year, gender) |>
+  summarise(life = mean(life), n = n(), .groups="drop")
+
+score_gender_edu <- dat |>
+  group_by(year, gender, edu_group) |>
+  summarise(life = mean(life), n = n(), .groups="drop")
+
+g_gap_2006 <- diff(score_gender$life[score_gender$year==2006]
+                   [order(score_gender$gender[score_gender$year==2006])])
+g_gap_2016 <- diff(score_gender$life[score_gender$year==2016]
+                   [order(score_gender$gender[score_gender$year==2016])])
+
+round(abs(g_gap_2006), 2) 
+round(abs(g_gap_2016), 2) 
+
+#핵심 요약
+#2006년 남녀 평균 차이는 약 0.19점
+#2016년 남녀 평균 차이는 약 0.07점
+#교욱수준이 높을수록 전반적으로 만족도가 높은 우상향 패턴 관찰됨 (성별 및 연도 공통)
+
+# ---- II. 데이터 & 방법 ----
+#데이터: TSCS 2006/2011/2016(성인), 각 연도 표본. [대만사회변천]
+#전처리: 20–69세 필터, 결측 제거.
+#교육정도→집단화: 0–9=國中以下(중졸이하), 10–12=高中職(고졸), 13–15=專科(전문대졸), 16–22=大學以上(대학이상)
+#만족도 척도 표준화: 2011/2016 척도 방향을 2006과 일치하도록 반전시켜야 함.
+
+life_dist <- dat |> count(year, life) |> group_by(year) |>
+  mutate(pct = n/sum(n)) |> ungroup()
+
+knitr::kable(life_dist, caption = "연도별 생활만족도 분포(1~5)")
+
+dat$edu_group
+dat <- dat |>
+  mutate(
+    edu_group = factor(
+      edu_group,
+      levels = c("國中以下(중졸이하)", "高中職(고졸)", "專科(전문대졸)", "大學以上(대학이상)")
+    )
+  )
+
+edu_check <- dat |>
+  group_by(edu_group) |>
+  summarise(
+    min_yr = min(eduyr, na.rm = TRUE),
+    max_yr = max(eduyr, na.rm = TRUE),
+    n = n(),
+    .groups = "drop"
+  )
+knitr::kable(edu_check, caption = "교육정도와 집단 구간 점검")
+
+score_gender_edu <- score_gender_edu |>
+  mutate(
+    edu_group = factor(
+      edu_group,
+      levels = c("國中以下(중졸이하)", "高中職(고졸)", "專科(전문대졸)", "大學以上(대학이상)")
+    )
+  )
+
+edu_summary <- score_gender_edu |>
+  group_by(gender, edu_group, year) |>
+  summarise(life_mean = mean(life, na.rm=TRUE), .groups="drop") |>
+  arrange(gender, edu_group, year)
+
+
+
+# ---- III. 주요 결과 ----
+# ---- 1. 성별별 평균 ----
+ggplot(score_gender, aes(year, life, color = gender, group = gender)) +
+  geom_point() +
+  geom_line(linewidth = 0.9) +
+  scale_x_continuous(breaks = c(2006, 2011, 2016)) +
+  labs(x = "연도", y = "평균 점수(1=낮음, 5=높음)", color = "성별",
+       title = "생활만족도 평균(성별)") +
+
+#해석
+#세 연도 모두 여성의 생활만족도가 남성보다 높게 나타남.
+#2011 -> 2016 동안 생활만족도가 전반적으로 상승함
+
+# ---- 2. 성별×교육수준 ----
+score_gender_edu |> filter(gender=="男") |>
+  ggplot(aes(year, life, color = edu_group, group = edu_group)) +
+  geom_point() + geom_line(linewidth = 0.9) +
+  scale_x_continuous(breaks = c(2006, 2011, 2016)) +
+  labs(x = "연도", y = "평균 점수", color = "교육수준",
+       title = "남성 생활만족도: 교육수준별") +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE)) +
+  theme(legend.position = "bottom") 
+
+score_gender_edu |> filter(gender=="女") |>
+  ggplot(aes(year, life, color = edu_group, group = edu_group)) +
+  geom_point() + geom_line(linewidth = 0.9) +
+  scale_x_continuous(breaks = c(2006, 2011, 2016)) +
+  labs(x = "연도", y = "평균 점수", color = "교육수준",
+       title = "여성 생활만족도: 교육수준별") +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE)) +
+  theme(legend.position = "bottom") 
+
+#해석
+#대부분의 연도에서 교육수준↑ → 만족도↑ 경향.
+#성별에 따라 구간 간격(격차) 이 다른지 확인(정책/시장 세분화 시사점).
+
+
+# ---- IV. 시사점 ----
+# 1. 교육 효과의 변화
+#   전통적 “학력↑ 만족↑” 패턴이 2010년대에 완만해지면서 專科(전문대졸)이 정점을 차지.
+#   시장 측면: 실무형 인력인 전문대졸의 경제·고용 안정감이 만족도를 견인했을 가능성.
+#   공공정책: 중하학력층(중졸이하·고졸)의 만족도 개선이 남성에서 특히 큼 → 취업·직업훈련 정책 효과 
+
+# 2. 성별 격차 축소
+#   2011년 급격한 격차 축소는 경기·고용 충격에 대한 성별 공통 영향 혹은 측정/가중 변화 가능성.
+#   2016년에도 격차는 작아 성별보다는 교육·세대(연령)·지역 변이가 더 클 수 있음.
+
+# 3. 정책 및 시장적 함의
+#   남성·중저학력자: 2006→2011 개선 폭이 커 정책·시장 개입의 수혜 집단일 수 있음(그러나 2016에 일부 반락).
+#   여성·대학이상: 2011년의 일시적 하락 원인 탐색 필요(경력단절, 고용품질, 주거비 등 변수 연계 가능성).
+
+# ---- V. 부록 ----
+
+knitr::kable(score_gender, caption = "성별×연도 평균(표)")
+score_gender_edu |>
+  arrange(year, gender, edu_group) |>
+  knitr::kable(caption = "성별×교육수준×연도 평균(표)")
+
+sessionInfo()
+
